@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+# Visual Studio Related
+.vs
+.git
+out
+CMakePresets.json
