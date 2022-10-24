@@ -36,7 +36,7 @@ GeneicAlgorithm::Chromosome GeneicAlgorithm::encoder(unsigned int Dimension,
 	{
 		long sub_chromosome = (Variables[i] - Bounds[i].LowerBound) / Bounds[i].Precision;
 		auto binary_string = to_binary_string(sub_chromosome, sub_length[i]);
-		chromosome.str += binary_string;
+		str += binary_string;
 	}
 
 	return chromosome;
