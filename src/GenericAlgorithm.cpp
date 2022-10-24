@@ -8,15 +8,20 @@ GeneicAlgorithm::Chromosome GeneicAlgorithm::encoder(unsigned int Dimension,
 	if (Variables.size() != Dimension or Bounds.size() != Dimension)
 		throw std::runtime_error("Variable counts do not equal to dimension!");
 
+	GeneicAlgorithm::Chromosome chromosome;
+	chromosome.bounds = Bounds;
+	chromosome.dimension = Dimension;
+	chromosome.values = Variables;
+
 	size_t length = 0;// length of chromosome
-	std::vector<size_t> sub_length(Dimension);// length of each variable in chromosome
+	chromosome.sub_length.resize(Dimension);// length of each variable in chromosome
 	for (int i = 0; i < Dimension; i++)
 	{
 		auto length_interval = Bounds[i].UpperBound - Bounds[i].LowerBound;
-		sub_length[i] = std::ceil(std::log(length_interval / Bounds[i].Precision) / std::log(2));
-		length += sub_length[i];
+		chromosome.sub_length[i] = std::ceil(std::log(length_interval / Bounds[i].Precision) / std::log(2));
+		length += chromosome.sub_length[i];
 	}
-	GeneicAlgorithm::Chromosome chromosome;
+
 	chromosome.str.reserve(length);
 
 	//lambda converting decimal to binary string
@@ -35,7 +40,7 @@ GeneicAlgorithm::Chromosome GeneicAlgorithm::encoder(unsigned int Dimension,
 	for (int i = 0; i < Dimension; i++)
 	{
 		long sub_chromosome = (Variables[i] - Bounds[i].LowerBound) / Bounds[i].Precision;
-		auto binary_string = to_binary_string(sub_chromosome, sub_length[i]);
+		auto binary_string = to_binary_string(sub_chromosome, chromosome.sub_length[i]);
 		chromosome.str += binary_string;
 	}
 
@@ -106,7 +111,7 @@ std::vector<GeneicAlgorithm::Chromosome> GeneicAlgorithm::roulette_selection(std
 	for (auto i = 0; i < probilities.size(); i++)
 	{
 		decltype(i) j;
-		for (j = 1; j < accumulative_probility.size(); j++)
+		for (j = 1; j < accumulative_probility.size(); j++)\
 		{
 			if (accumulative_probility[j] < probilities[i])
 			{
@@ -122,7 +127,115 @@ std::vector<GeneicAlgorithm::Chromosome> GeneicAlgorithm::roulette_selection(std
 	return return_set;
 }
 
-std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct GeneicAlgorithm::Bound bound= { 0,1,0.0000000001 })
+int GeneicAlgorithm::crossover(std::vector<GeneicAlgorithm::Chromosome>& chromosomeSet)
+{
+	//Generate a random number and determine whether to cross according to the size of the random number and the probability
+	//Generate a random number and use this random number as the crossover point
+	//Use the decoder to decode after the crossover to check whether the value of the daughter chromosome is legal. If it is not legal, re-determine the crossover site
+	//Crossover all chromosomes in pairs to obtain offspring
+
+	int crossover_count = 0;
+
+	auto try_cross = [&](int i) ->bool{
+		GeneicAlgorithm::Chromosome& chromosome_left = chromosomeSet[i * 2];
+		GeneicAlgorithm::Chromosome& chromosome_right = chromosomeSet[i * 2 + 1];
+		
+		//select crossover point
+		struct GeneicAlgorithm::Bound bound { 1, chromosome_left.str.length()-1, 1 };
+		auto cross_point = get_random_numbers(1, bound);
+		cross_point[0] = std::round(cross_point[0]);
+		
+		//do crossover
+		std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
+		
+		//get value from chromosome string
+		auto val_left = decoder(chromosome_left.dimension, chromosome_left.bounds, chromosome_left.str);
+		auto val_right = decoder(chromosome_right.dimension, chromosome_right.bounds, chromosome_right.str);
+		
+		//begin value check
+		for (int j = 0; j < val_left.size(); j++)
+		{
+			if (val_left[j]<chromosome_left.bounds[j].LowerBound or val_left[j]>chromosome_left.bounds[j].UpperBound)
+			{
+				//restore crossover
+				std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
+				return false;
+			}
+			if (val_right[j]<chromosome_right.bounds[j].LowerBound or val_right[j]>chromosome_right.bounds[j].UpperBound)
+			{
+				//restore crossover
+				std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
+				return false;
+			}
+		}
+
+		//update values
+		chromosome_left.values = val_left;
+		chromosome_right.values = val_right;
+		return true;
+	};
+
+	auto probility_of_crossover_or_not = get_random_numbers(chromosomeSet.size()/2);//generate N/2 random numbers to ensure each pair of chromosome does crossover or not
+	for (auto i = 0; i < probility_of_crossover_or_not.size(); i++)
+	{
+		if (probility_of_crossover_or_not[i] < probability_crossover)
+		{
+			crossover_count++;
+
+			//keep crossover until success
+			while (not try_cross(i));
+
+		}
+	}
+
+	return crossover_count;
+}
+
+int GeneicAlgorithm::mutation(std::vector<GeneicAlgorithm::Chromosome>& chromosomeSet)
+{
+	//Generate random numbers for each site to determine whether to mutate.
+	//Judge the legitimacy of the offspring chromosomes.
+	
+	int mutation_count = 0;
+
+	//generate M random number to ensure mutation or not
+	std::vector<double> probility_of_mutation_or_not;
+
+	auto try_mutate = [&](int i) {
+		probility_of_mutation_or_not = get_random_numbers(chromosomeSet[0].str.length());
+		std::string str_before = chromosomeSet[i].str;//store chromosome string for restore
+		int mutation_count_temp = 0;
+		for (auto j = 0; j < chromosomeSet[i].str.size(); j++)
+		{
+			if (probility_of_mutation_or_not[i * chromosomeSet[0].str.size() + j] < probality_mutation)
+				chromosomeSet[i].str[j] = chromosomeSet[i].str[j] == '1' ? '0' : '1', mutation_count_temp++;
+		}
+
+		auto val = decoder(chromosomeSet[i].dimension, chromosomeSet[i].bounds, chromosomeSet[i].str);
+		for (auto k = 0; k < val.size(); k++)
+		{
+			if (val[k]<chromosomeSet[i].bounds[k].LowerBound or val[k]>chromosomeSet[i].bounds[k].UpperBound)
+			{
+				chromosomeSet[i].str = str_before;
+				return false;
+			}
+		}
+
+		chromosomeSet[i].values = val;
+		mutation_count += mutation_count_temp;
+		return true;
+	};
+
+	for (auto i = 0; i < chromosomeSet.size(); i++)
+	{
+		std::cerr << "mutate_in";
+		while (not try_mutate(i));
+	}
+	std::cerr << "mutate_out";
+	return mutation_count;
+}
+
+std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct GeneicAlgorithm::Bound bound)
 {
 	std::random_device rd;  // Will be used to obtain a seed for the random number engine
 	std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -135,4 +248,10 @@ std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct G
 	);
 
 	return result;
+}
+
+bool GeneicAlgorithm::run()
+{
+
+	return false;
 }

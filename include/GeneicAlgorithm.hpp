@@ -23,18 +23,26 @@ public:
 	bool tester()
 	{
 		auto bounds = std::vector<struct GeneicAlgorithm::Bound>{ {-5,5,0.0001}, { -5,5,0.0001 } };
-		auto result = encoder(2, std::vector<double>{-1.6707,-4.5202},bounds);
-		auto result2 = decoder(2, bounds, result);
+		//auto result = encoder(2, std::vector<double>{-1.6707,-4.5202},bounds);
+
 		eval_function = [](std::vector<double> v) {
-			double result = 0.1; std::for_each(v.begin(), v.end(), [&](double x) {result *= x; }); return result; };
-		std::vector<GeneicAlgorithm::Chromosome> chromosome{
-			{"11",2,std::vector<double>{1,1},std::vector<size_t>()},
-			{"22",2,std::vector<double>{2,2},std::vector<size_t>()},
-			{"33",2,std::vector<double>{3,3},std::vector<size_t>()},
-		};
+			double result = 0.01; std::for_each(v.begin(), v.end(), [&](double x) {result *= x; }); return result; };
+		
+		std::vector<GeneicAlgorithm::Chromosome> chromosome;
+		for (auto i = 1.0; i < 5; i+=0.1)
+		{
+			chromosome.push_back(std::move(encoder(2, { (double)i,(double)i}, bounds)));
+		}
+
 		decltype(chromosome) result3 = roulette_selection(chromosome);
+
+		auto ret_val=crossover(result3);
+		//ret_val=mutation(result3);
+
 		return true;
 	}
+
+	bool run();
 
 public:
 	//struct and complex types
@@ -58,6 +66,8 @@ private:
 		unsigned int dimension;//variable number
 		std::vector<double> values;//variable values
 		std::vector<size_t> sub_length;//length of each variable in chromosome
+		std::vector<struct Bound> bounds;//boundary of variable
+
 	};
 
 
@@ -66,8 +76,9 @@ private:
 
 	GeneicAlgorithm::Chromosome encoder(unsigned int, const std::vector<double>&, const std::vector<struct GeneicAlgorithm::Bound>&);
 	std::vector<double> decoder(unsigned int, const std::vector<struct GeneicAlgorithm::Bound>&, const std::string&);
-	std::vector<GeneicAlgorithm::Chromosome> roulette_selection(std::vector<GeneicAlgorithm::Chromosome>& x);
-	
+	std::vector<GeneicAlgorithm::Chromosome> roulette_selection(std::vector<GeneicAlgorithm::Chromosome>& x);//roulette selection function : choose offspring chromosomes
+	int crossover(std::vector<GeneicAlgorithm::Chromosome>&);//do crossover on chromosome set
+	int mutation(std::vector<GeneicAlgorithm::Chromosome>&);//do mutation on chromosome set
 
 private:
 	//variables and constants
@@ -79,10 +90,14 @@ private:
 	//evaluation related
 	std::function<double(std::vector<double>)> eval_function;//evaluate function
 
+	//crossover and mutation related
+	double probability_crossover = 0.8;//probability of crossover on each pair of chromosome 
+	double probality_mutation=0.01;//probality of mutation on each point of gene
+
 protected:
 	//utility methods
 
-	std::vector<double> get_random_numbers(unsigned int N, struct GeneicAlgorithm::Bound={0,1,0.0000000001});
+	std::vector<double> get_random_numbers(unsigned int, struct GeneicAlgorithm::Bound={ 0, 1, 0.0000000001 });
 
 };
 
