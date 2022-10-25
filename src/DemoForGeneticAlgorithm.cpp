@@ -10,10 +10,7 @@ int main()
 {
 	GeneicAlgorithm ga(1);
 
-	for (auto i = 0; i < 10000; i++)
-	{
-		ga.tester();
-	}
+	ga.execute();
 
 	return 0;
 }

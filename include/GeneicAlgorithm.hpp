@@ -22,7 +22,7 @@ public:
 	GeneicAlgorithm(int i) {};
 	bool tester()
 	{
-		auto bounds = std::vector<struct GeneicAlgorithm::Bound>{ {-5,5,0.0001}, { -5,5,0.0001 } };
+		bounds_of_variables = std::vector<struct GeneicAlgorithm::Bound>{ {-5,5,0.0001}, { -5,5,0.0001 } };
 		//auto result = encoder(2, std::vector<double>{-1.6707,-4.5202},bounds);
 
 		eval_function = [](std::vector<double> v) {
@@ -31,13 +31,13 @@ public:
 		std::vector<GeneicAlgorithm::Chromosome> chromosome;
 		for (auto i = 1.0; i < 5; i+=0.1)
 		{
-			chromosome.push_back(std::move(encoder(2, { (double)i,(double)i}, bounds)));
+			chromosome.push_back(std::move(encoder(2, { (double)i,(double)i}, bounds_of_variables)));
 		}
 
 		decltype(chromosome) result3 = roulette_selection(chromosome);
 
 		auto ret_val=crossover(result3);
-		//ret_val=mutation(result3);
+		ret_val=mutation(result3);
 
 		return true;
 	}
@@ -66,10 +66,20 @@ private:
 		unsigned int dimension;//variable number
 		std::vector<double> values;//variable values
 		std::vector<size_t> sub_length;//length of each variable in chromosome
-		std::vector<struct Bound> bounds;//boundary of variable
+		double adaptibility;//value of eval function
 
+	public:
+		int show_values()//print essential value
+		{
+			std::cout << "variable: ";
+			for (auto item : values)
+			{
+				std::cout << item << ',';
+			}
+			std::cout << "\t adaptibility:" << adaptibility << std::endl;
+			return 1;
+		}
 	};
-
 
 private:
 	//methods
@@ -84,9 +94,9 @@ private:
 	//variables and constants
 
 	//arguments
-	unsigned int population_size = 100;//number of chromosome
-	long max_evolution_time = 100;//number of cycles repeated
-	Bound bound_of_variable;
+	unsigned int population_size;//number of chromosome
+	long max_evolution_time;//number of cycles repeated
+	unsigned int dimension;//variable number
 	
 	//encoding related
 	std::vector<GeneicAlgorithm::Chromosome> chromosomes;//store all chromosome
@@ -96,8 +106,8 @@ private:
 	std::function<double(std::vector<double>)> eval_function;//evaluate function
 
 	//crossover and mutation related
-	double probability_crossover = 0.8;//probability of crossover on each pair of chromosome 
-	double probality_mutation=0.01;//probality of mutation on each point of gene
+	double probability_crossover;//probability of crossover on each pair of chromosome 
+	double probality_mutation;//probality of mutation on each point of gene
 
 protected:
 	//utility methods

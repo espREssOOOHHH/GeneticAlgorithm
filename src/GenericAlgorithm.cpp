@@ -9,7 +9,6 @@ GeneicAlgorithm::Chromosome GeneicAlgorithm::encoder(unsigned int Dimension,
 		throw std::runtime_error("Variable counts do not equal to dimension!");
 
 	GeneicAlgorithm::Chromosome chromosome;
-	chromosome.bounds = Bounds;
 	chromosome.dimension = Dimension;
 	chromosome.values = Variables;
 
@@ -44,6 +43,7 @@ GeneicAlgorithm::Chromosome GeneicAlgorithm::encoder(unsigned int Dimension,
 		chromosome.str += binary_string;
 	}
 
+	chromosome.adaptibility = eval_function(chromosome.values);
 	return chromosome;
 }
 
@@ -78,7 +78,7 @@ std::vector<double> GeneicAlgorithm::decoder(unsigned int Dimension,
 	{
 		end_pt += sub_length[i];
 		variable_return[i] = to_decimal(begin_pt, end_pt) * Bounds[i].Precision + Bounds[i].LowerBound;
-		begin_pt += end_pt;
+		begin_pt += sub_length[i];
 	}
 	return variable_return;
 }
@@ -86,16 +86,14 @@ std::vector<double> GeneicAlgorithm::decoder(unsigned int Dimension,
 std::vector<GeneicAlgorithm::Chromosome> GeneicAlgorithm::roulette_selection(std::vector<GeneicAlgorithm::Chromosome>& Chromosome_Sets)
 {
 	double sum_of_adaptability = 0;//i.e. F=sigma(eval(v_k))
-	std::vector<double> adaptabilities(Chromosome_Sets.size());//i.e. p_k, adaptability of each individual v_k
-	decltype(adaptabilities) accumulative_probility(Chromosome_Sets.size(),0);//i.e. q_k, accumulative probility of each individual v_k
+	std::vector<double> accumulative_probility(Chromosome_Sets.size(),0);//i.e. q_k, accumulative probility of each individual v_k
 	
 
 	for (auto i = 0; i < Chromosome_Sets.size(); i++)
 	{
-		adaptabilities[i] = eval_function(Chromosome_Sets[i].values);
-		sum_of_adaptability += adaptabilities[i];
+		sum_of_adaptability += Chromosome_Sets[i].adaptibility;
 		std::for_each(accumulative_probility.begin(), accumulative_probility.begin() + i + 1, [&](double &item) {
-			item += adaptabilities[i];
+			item += Chromosome_Sets[i].adaptibility;
 			}
 		);
 	}
@@ -111,7 +109,7 @@ std::vector<GeneicAlgorithm::Chromosome> GeneicAlgorithm::roulette_selection(std
 	for (auto i = 0; i < probilities.size(); i++)
 	{
 		decltype(i) j;
-		for (j = 1; j < accumulative_probility.size(); j++)\
+		for (j = 1; j < accumulative_probility.size(); j++)
 		{
 			if (accumulative_probility[j] < probilities[i])
 			{
@@ -136,7 +134,7 @@ int GeneicAlgorithm::crossover(std::vector<GeneicAlgorithm::Chromosome>& chromos
 
 	int crossover_count = 0;
 
-	auto try_cross = [&](int i) ->bool{
+	auto try_cross = [&](auto i) ->bool{
 		GeneicAlgorithm::Chromosome& chromosome_left = chromosomeSet[i * 2];
 		GeneicAlgorithm::Chromosome& chromosome_right = chromosomeSet[i * 2 + 1];
 		
@@ -149,19 +147,19 @@ int GeneicAlgorithm::crossover(std::vector<GeneicAlgorithm::Chromosome>& chromos
 		std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
 		
 		//get value from chromosome string
-		auto val_left = decoder(chromosome_left.dimension, chromosome_left.bounds, chromosome_left.str);
-		auto val_right = decoder(chromosome_right.dimension, chromosome_right.bounds, chromosome_right.str);
+		auto val_left = decoder(chromosome_left.dimension, bounds_of_variables, chromosome_left.str);
+		auto val_right = decoder(chromosome_right.dimension, bounds_of_variables, chromosome_right.str);
 		
 		//begin value check
 		for (int j = 0; j < val_left.size(); j++)
 		{
-			if (val_left[j]<chromosome_left.bounds[j].LowerBound or val_left[j]>chromosome_left.bounds[j].UpperBound)
+			if (val_left[j]<bounds_of_variables[j].LowerBound or val_left[j]>bounds_of_variables[j].UpperBound)
 			{
 				//restore crossover
 				std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
 				return false;
 			}
-			if (val_right[j]<chromosome_right.bounds[j].LowerBound or val_right[j]>chromosome_right.bounds[j].UpperBound)
+			if (val_right[j]<bounds_of_variables[j].LowerBound or val_right[j]>bounds_of_variables[j].UpperBound)
 			{
 				//restore crossover
 				std::swap_ranges(chromosome_left.str.begin() + cross_point[0], chromosome_left.str.end(), chromosome_right.str.begin() + cross_point[0]);
@@ -172,6 +170,8 @@ int GeneicAlgorithm::crossover(std::vector<GeneicAlgorithm::Chromosome>& chromos
 		//update values
 		chromosome_left.values = val_left;
 		chromosome_right.values = val_right;
+		chromosome_left.adaptibility = eval_function(chromosome_left.values);
+		chromosome_right.adaptibility = eval_function(chromosome_right.values);
 		return true;
 	};
 
@@ -207,14 +207,14 @@ int GeneicAlgorithm::mutation(std::vector<GeneicAlgorithm::Chromosome>& chromoso
 		int mutation_count_temp = 0;
 		for (auto j = 0; j < chromosomeSet[i].str.size(); j++)
 		{
-			if (probility_of_mutation_or_not[i * chromosomeSet[0].str.size() + j] < probality_mutation)
+			if (probility_of_mutation_or_not[j] < probality_mutation)
 				chromosomeSet[i].str[j] = chromosomeSet[i].str[j] == '1' ? '0' : '1', mutation_count_temp++;
 		}
 
-		auto val = decoder(chromosomeSet[i].dimension, chromosomeSet[i].bounds, chromosomeSet[i].str);
+		auto val = decoder(chromosomeSet[i].dimension, bounds_of_variables, chromosomeSet[i].str);
 		for (auto k = 0; k < val.size(); k++)
 		{
-			if (val[k]<chromosomeSet[i].bounds[k].LowerBound or val[k]>chromosomeSet[i].bounds[k].UpperBound)
+			if (val[k]<bounds_of_variables[k].LowerBound or val[k]>bounds_of_variables[k].UpperBound)
 			{
 				chromosomeSet[i].str = str_before;
 				return false;
@@ -222,16 +222,15 @@ int GeneicAlgorithm::mutation(std::vector<GeneicAlgorithm::Chromosome>& chromoso
 		}
 
 		chromosomeSet[i].values = val;
+		chromosomeSet[i].adaptibility = eval_function(chromosomeSet[i].values);
 		mutation_count += mutation_count_temp;
 		return true;
 	};
 
 	for (auto i = 0; i < chromosomeSet.size(); i++)
 	{
-		std::cerr << "mutate_in";
 		while (not try_mutate(i));
 	}
-	std::cerr << "mutate_out";
 	return mutation_count;
 }
 
@@ -252,8 +251,53 @@ std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct G
 
 bool GeneicAlgorithm::execute()
 {
-	std::vector<GeneicAlgorithm::Chromosome> chromosome(population_size);
 
+	//only for debug
+	eval_function = [](std::vector<double> v) {
+		double result = 0; std::for_each(v.begin(), v.end(), [&](double x) {result += x*x; }); return result; };
+	bounds_of_variables = std::vector<struct GeneicAlgorithm::Bound>{ {-100,100,0.01}, { -100,100,0.01}
+	, { -100,100,0.01} , { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}
+	, { -100,100,0.01} , { -100,100,0.01} };
+	dimension = 10;
+	max_evolution_time = 500;
+	population_size = 50;
+	probability_crossover = 0.4;
+	probality_mutation = 0.01;
 
-	return false;
+	std::vector<GeneicAlgorithm::Chromosome> chromosomeSet(population_size);
+
+	//init chromosome randomly
+	for (auto& item : chromosomeSet)
+	{
+		std::vector<double> variables(dimension);
+		for (auto i = 0; i < dimension; i++)
+		{
+			variables[i] = get_random_numbers(1, bounds_of_variables[i])[0];
+		}
+
+		item = encoder(dimension, variables, bounds_of_variables);
+	}
+
+	//lambda seeking best item in set and show
+	auto show_best_item = [&](int turn) {
+		auto best_element = std::max_element(chromosomeSet.begin(), chromosomeSet.end(), 
+			[](Chromosome item1, Chromosome item2) {
+				return item1.adaptibility < item2.adaptibility;
+			});
+		std::cout << "round " << turn<<' ';
+		(*best_element).show_values();
+	};
+
+	for (auto i = 0; i < max_evolution_time; i++)
+	{
+		chromosomeSet = roulette_selection(chromosomeSet);
+		auto ret_val = crossover(chromosomeSet);
+		ret_val = mutation(chromosomeSet);
+		
+		show_best_item(i);
+	}
+
+	show_best_item(max_evolution_time);
+
+	return true;
 }
