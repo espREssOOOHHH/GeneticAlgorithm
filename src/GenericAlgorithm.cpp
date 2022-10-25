@@ -250,8 +250,10 @@ std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct G
 	return result;
 }
 
-bool GeneicAlgorithm::run()
+bool GeneicAlgorithm::execute()
 {
+	std::vector<GeneicAlgorithm::Chromosome> chromosome(population_size);
+
 
 	return false;
 }

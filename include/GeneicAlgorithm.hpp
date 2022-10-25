@@ -42,7 +42,7 @@ public:
 		return true;
 	}
 
-	bool run();
+	bool execute();
 
 public:
 	//struct and complex types
@@ -82,6 +82,11 @@ private:
 
 private:
 	//variables and constants
+
+	//arguments
+	unsigned int population_size = 100;//number of chromosome
+	long max_evolution_time = 100;//number of cycles repeated
+	Bound bound_of_variable;
 	
 	//encoding related
 	std::vector<GeneicAlgorithm::Chromosome> chromosomes;//store all chromosome
