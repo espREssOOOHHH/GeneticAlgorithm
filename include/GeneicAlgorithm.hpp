@@ -7,6 +7,8 @@
 #include <functional>
 #include <algorithm>
 #include <random>
+#include <chrono>
+#include <tuple>
 
 class BaseAlgorithm
 {
@@ -19,7 +21,51 @@ public:
 class GeneicAlgorithm
 {
 public:
-	GeneicAlgorithm(int i) {};
+	//struct and complex types
+
+	//interval args
+	struct Bound
+	{
+		double LowerBound;
+		double UpperBound;
+		double Precision;
+	};
+
+private:
+	//struct and complex types
+
+	//Chromosome
+	class Chromosome
+	{
+	public:
+		std::string str;//chromosome in string form
+		unsigned int dimension;//variable number
+		std::vector<double> values;//variable values
+		std::vector<size_t> sub_length;//length of each variable in chromosome
+		double adaptibility;//value of eval function
+
+	public:
+		std::string show_values(bool ShowVariable=true, bool ShowAdaptibility=true,
+			bool ShowChromosomeStr=false)//print essential value
+		{
+			std::string return_val;
+			if (ShowVariable) 
+			{
+				for (auto item : values)
+				{
+					return_val += std::to_string(item) + ',';
+				}
+			}
+			if (ShowAdaptibility)
+				return_val += std::to_string(adaptibility) + ',';
+			if (ShowChromosomeStr)
+				return_val += str;
+			return return_val;
+		}
+	};
+public:
+	//construction function, must specify dimension!
+	GeneicAlgorithm(unsigned int Dimension):dimension(Dimension) {};
 	bool tester()
 	{
 		bounds_of_variables = std::vector<struct GeneicAlgorithm::Bound>{ {-5,5,0.0001}, { -5,5,0.0001 } };
@@ -42,44 +88,12 @@ public:
 		return true;
 	}
 
-	bool execute();
-
-public:
-	//struct and complex types
-
-	//interval args
-	struct Bound
-	{
-		double LowerBound;
-		double UpperBound;
-		double Precision;
-	};
-
-private:
-	//struct and complex types
-	
-	//Chromosome
-	class Chromosome
-	{
-	public:
-		std::string str;//chromosome in string form
-		unsigned int dimension;//variable number
-		std::vector<double> values;//variable values
-		std::vector<size_t> sub_length;//length of each variable in chromosome
-		double adaptibility;//value of eval function
-
-	public:
-		int show_values()//print essential value
-		{
-			std::cout << "variable: ";
-			for (auto item : values)
-			{
-				std::cout << item << ',';
-			}
-			std::cout << "\t adaptibility:" << adaptibility << std::endl;
-			return 1;
-		}
-	};
+	//do GA execute
+	std::tuple<std::vector<std::string>,std::vector<double>,double> 
+		execute(std::function<double(std::vector<double>)>,
+		std::vector<struct GeneicAlgorithm::Bound>, long MaxEvolutionTime,
+		unsigned int PopulationSize, double ProbabilityCrossover, double ProbabilityMutation,
+		bool DoStatistics);
 
 private:
 	//methods
@@ -107,7 +121,7 @@ private:
 
 	//crossover and mutation related
 	double probability_crossover;//probability of crossover on each pair of chromosome 
-	double probality_mutation;//probality of mutation on each point of gene
+	double probability_mutation;//probality of mutation on each point of gene
 
 protected:
 	//utility methods

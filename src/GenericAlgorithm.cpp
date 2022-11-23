@@ -207,7 +207,7 @@ int GeneicAlgorithm::mutation(std::vector<GeneicAlgorithm::Chromosome>& chromoso
 		int mutation_count_temp = 0;
 		for (auto j = 0; j < chromosomeSet[i].str.size(); j++)
 		{
-			if (probility_of_mutation_or_not[j] < probality_mutation)
+			if (probility_of_mutation_or_not[j] < probability_mutation)
 				chromosomeSet[i].str[j] = chromosomeSet[i].str[j] == '1' ? '0' : '1', mutation_count_temp++;
 		}
 
@@ -249,22 +249,37 @@ std::vector<double> GeneicAlgorithm::get_random_numbers(unsigned int N, struct G
 	return result;
 }
 
-bool GeneicAlgorithm::execute()
+std::tuple<std::vector<std::string>, std::vector<double>, double> 
+GeneicAlgorithm::execute(std::function<double (std::vector<double>)> EvalFuction,
+	std::vector<struct GeneicAlgorithm::Bound> BoundsOfVariables,long MaxEvolutionTime,
+	unsigned int PopulationSize,double ProbabilityCrossover,double ProbabilityMutation,
+	bool DoStatistics)
 {
-
-	//only for debug
-	eval_function = [](std::vector<double> v) {
-		double result = 0; std::for_each(v.begin(), v.end(), [&](double x) {result += x*x; }); return result; };
-	bounds_of_variables = std::vector<struct GeneicAlgorithm::Bound>{ {-100,100,0.01}, { -100,100,0.01}
-	, { -100,100,0.01} , { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}, { -100,100,0.01}
-	, { -100,100,0.01} , { -100,100,0.01} };
-	dimension = 10;
-	max_evolution_time = 500;
-	population_size = 50;
-	probability_crossover = 0.4;
-	probality_mutation = 0.01;
+	//init hyper args
+	eval_function = EvalFuction;
+	bounds_of_variables = BoundsOfVariables;
+	max_evolution_time = MaxEvolutionTime;
+	population_size = PopulationSize;
+	probability_crossover = ProbabilityCrossover;
+	probability_mutation = ProbabilityMutation;
 
 	std::vector<GeneicAlgorithm::Chromosome> chromosomeSet(population_size);
+
+	std::vector<std::string> statisticsResult;//return statistics result
+	if (DoStatistics)
+	{
+		statisticsResult.resize(max_evolution_time+2);
+		statisticsResult[0] = "index,";
+		for (auto i = 0; i < dimension; i++)
+		{
+			statisticsResult[0] += std::to_string(i);
+			statisticsResult[0] += ',';
+		}
+		statisticsResult[0] += "adaptibility";
+	}
+	
+	//timing begin
+	auto start = std::chrono::high_resolution_clock::now();
 
 	//init chromosome randomly
 	for (auto& item : chromosomeSet)
@@ -284,8 +299,21 @@ bool GeneicAlgorithm::execute()
 			[](Chromosome item1, Chromosome item2) {
 				return item1.adaptibility < item2.adaptibility;
 			});
-		std::cout << "round " << turn<<' ';
-		(*best_element).show_values();
+		if (DoStatistics)
+		{
+			statisticsResult[turn+1] = std::to_string(turn) + ',';
+			statisticsResult[turn+1] += (*best_element).show_values();
+			
+			if (not (turn % 100))
+			{
+				std::cout << "\33[2J" << std::endl;   //clear the screen
+				std::cout << "\33[0;0H" << std::endl; //cursor return to start point
+				std::cout << "optimizing...." << std::endl;
+				std::cout << "turn " << turn << " /" << max_evolution_time << std::endl;
+			}
+		}
+		else
+			std::cout << "round " << turn<<':' << (*best_element).show_values() << std::endl;
 	};
 
 	for (auto i = 0; i < max_evolution_time; i++)
@@ -299,5 +327,14 @@ bool GeneicAlgorithm::execute()
 
 	show_best_item(max_evolution_time);
 
-	return true;
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "time consumed is " << std::chrono::duration_cast<std::chrono::seconds>(end - start).count()<<
+		" ("<<std::chrono::duration<double,std::milli>(end - start).count() <<" ms )"<< std::endl;
+
+	auto result = std::max_element(chromosomeSet.begin(), chromosomeSet.end(),
+		[](Chromosome item1, Chromosome item2) {
+			return item1.adaptibility < item2.adaptibility;
+		});
+
+	return std::make_tuple(statisticsResult,(*result).values,(*result).adaptibility);
 }

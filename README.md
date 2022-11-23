@@ -1,3 +1,10 @@
-# issues
-1. encoder 和 decoder 对于染色体中各变量长度的存储没有做到保存到类中
-2. decoder 存在精度丢失问题
+# file structure
+
+./include:
+	算法的头文件
+./src:
+	算法的实现和测试函数
+CMakeLists.txt:
+	指导项目的编译
+README.md:
+	简单介绍本算法
